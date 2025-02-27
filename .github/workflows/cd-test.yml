@@ -1,0 +1,31 @@
+name: Deploy on Test
+run-name: Deploy ${{ inputs.version }} on Test
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        type: string
+        required: true
+  # Automatic workflow call from within the CI build (tags)
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version'
+        type: string
+        required: true
+
+jobs:
+  deploy-to-test-cluster:
+    uses: mmz-srf/inte.devops.github-templates/.github/workflows/workflow-cd.yml@master
+    secrets:
+      INTE_CARGO_URL: ${{ secrets.INTE_CARGO_TEST_URL }}
+      INTE_CARGO_SECRET: ${{ secrets.INTE_CARGO_TEST_SECRET }}
+    with:
+      version: ${{ inputs.version }}
+      enableTracing: false
+      environment: test
+      serviceName: fileid-app-frontend
+      deploymentNamespace: inte-playground

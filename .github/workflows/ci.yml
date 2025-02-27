@@ -1,0 +1,79 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    # Prepare
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+    # Build
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build --configuration=production
+
+    # Sonar
+      - name: Setup Cache for SonarCloud
+        uses: actions/cache@v3
+        with:
+            path: ~/.sonar/cache
+            key: ${{ runner.os }}-sonar
+            restore-keys: ${{ runner.os }}-sonar
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Container
+      - name: Set up Docker Buildx
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to STXT Registry
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v2
+        with:
+          registry: registry.swisstxt.ch
+          username: ${{ secrets.INTE_STXT_REGISTRY_USERNAME }}
+          password: ${{ secrets.INTE_STXT_REGISTRY_TOKEN }}
+
+      - name: Build & Push Docker Image
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          context: .
+          tags: registry.swisstxt.ch/srfop-proj-inte/fileid-app-frontend:${{ github.ref_name }}
+  deploy-test:
+    # Automatic deployment to test-cluster
+    name: deploy-test
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/cd-test.yml
+    secrets: inherit
+    needs: build
+    with:
+      version: ${{ github.ref_name }}

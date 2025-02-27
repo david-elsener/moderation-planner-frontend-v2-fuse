@@ -1,0 +1,19 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: fileid-app-frontend
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`fileid.#{inte-domain}#`)
+      middlewares:
+        - name: cargo-whitelistsourcerange-default
+          namespace: cargo-ingress
+      services:
+        - kind: Service
+          name: fileid-app-frontend
+          port: 8080
+  tls:
+    secretName: #{inte-domain}#
